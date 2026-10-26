@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zehner und Einer</title>
+    <!-- Tailwind CSS for modern responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for friendly typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti for celebration effects -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Fredoka', cursive, sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #fef3c7 100%);
+            min-height: 100vh;
+        }
+        /* Custom glowing and pulsing effects for success */
+        @keyframes successGlow {
+            0% { box-shadow: 0 0 5px rgba(34, 197, 94, 0.4); transform: scale(1); }
+            50% { box-shadow: 0 0 25px rgba(34, 197, 94, 0.8); transform: scale(1.01); }
+            100% { box-shadow: 0 0 10px rgba(34, 197, 94, 0.5); transform: scale(1); }
+        }
+        .row-success {
+            animation: successGlow 1.5s ease-in-out infinite;
+            background-color: #dcfce7 !important;
+            border-color: #22c55e !important;
+        }
+        /* Styling for base-10 blocks */
+        .ten-rod {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 1px;
+            background-color: #000;
+            border: 2px solid #000;
+            width: 140px;
+            height: 18px;
+            margin-bottom: 4px;
+            border-radius: 2px;
+        }
+        .ten-rod div {
+            background-color: #e0f2fe;
+            border-right: 1px solid #000;
+        }
+        .ten-rod div:last-child {
+            border-right: none;
+        }
+        .unit-cube {
+            width: 18px;
+            height: 18px;
+            background-color: #e0f2fe;
+            border: 2px solid #000;
+            border-radius: 2px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex flex-col items-center">
+    
+    <header class="text-center mb-8 bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-lg border-4 border-amber-300 max-w-3xl w-full">
+        <h1 class="text-4xl md:text-5xl font-bold text-amber-600 mb-2 drop-shadow">Zehner und Einer</h1>
+        <p class="text-lg md:text-xl text-slate-700 font-semibold">Zähle die Zehner und Einer. Schreibe die Zahl auf.</p>
+    </header>
+
+    <main id="tasks-container" class="w-full max-w-4xl flex flex-col gap-6 mb-8">
+        <!-- Tasks will be dynamically injected here -->
+    </main>
+
+    <div class="flex flex-wrap justify-center gap-4 mb-12">
+        <button onclick="generateNewSheet()" class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-xl font-bold py-4 px-8 rounded-full shadow-xl transform hover:scale-105 transition active:scale-95 border-b-4 border-green-800 flex items-center gap-3">
+            <span>🎲 Neue Aufgaben</span>
+        </button>
+        <button onclick="readInstructions()" class="bg-gradient-to-r from-sky-400 to-blue-500 hover:from-sky-500 hover:to-blue-600 text-white text-xl font-bold py-4 px-8 rounded-full shadow-xl transform hover:scale-105 transition active:scale-95 border-b-4 border-blue-700 flex items-center gap-3">
+            <span>🔊 Anleitung vorlesen</span>
+        </button>
+    </div>
+
+    <script>
+        // Audio synthesis for voice praise
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Stop previous speech
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'de-DE';
+                utterance.pitch = 1.3; // Higher pitch for child-friendly voice
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // Web Audio API for celebratory sounds (clapping & cheering simulation)
+        function playSuccessSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Play cheerful arpeggio
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, index) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime + index * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + index * 0.1 + 0.3);
+                    
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    
+                    osc.start(audioCtx.currentTime + index * 0.1);
+                    osc.stop(audioCtx.currentTime + index * 0.1 + 0.3);
+                });
+            } catch (e) {
+                console.log("Audio context blocked or unsupported", e);
+            }
+        }
+
+        function readInstructions() {
+            speak("Zähle die Zehnerstangen und Einerwürfel. Trage die Anzahl bei Z und E ein und schreibe die ganze Zahl auf die Linie!");
+        }
+
+        // Global state for current sheet tasks
+        let currentTasks = [];
+
+        function generateNewSheet() {
+            currentTasks = [];
+            const container = document.getElementById('tasks-container');
+            container.innerHTML = '';
+
+            for (let i = 0; i < 5; i++) {
+                // Random tens (1 to 9) and units (0 to 9)
+                const tens = Math.floor(Math.random() * 9) + 1;
+                const units = Math.floor(Math.random() * 10);
+                const total = tens * 10 + units;
+
+                currentTasks.push({ id: i, tens, units, total, solved: false });
+
+                const rowDiv = document.createElement('div');
+                rowDiv.id = `task-row-${i}`;
+                rowDiv.className = "bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-md border-3 border-amber-200 flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-500";
+                
+                // 1. Visual Blocks Generation
+                const visualDiv = document.createElement('div');
+                visualDiv.className = "flex flex-col md:flex-row items-center md:items-start gap-4 min-w-[220px]";
+
+                // Render Tens Rods
+                const rodsContainer = document.createElement('div');
+                rodsContainer.className = "flex flex-col gap-1";
+                for (let t = 0; t < tens; t++) {
+                    const rod = document.createElement('div');
+                    rod.className = "ten-rod";
+                    for (let c = 0; c < 10; c++) {
+                        rod.appendChild(document.createElement('div'));
+                    }
+                    rodsContainer.appendChild(rod);
+                }
+                visualDiv.appendChild(rodsContainer);
+
+                // Render Unit Cubes (arranged in neat grids of up to 5 per column)
+                if (units > 0) {
+                    const unitsContainer = document.createElement('div');
+                    unitsContainer.className = "grid grid-cols-3 gap-1 max-w-[70px]";
+                    for (let u = 0; u < units; u++) {
+                        const cube = document.createElement('div');
+                        cube.className = "unit-cube";
+                        unitsContainer.appendChild(cube);
+                    }
+                    visualDiv.appendChild(unitsContainer);
+                }
+
+                rowDiv.appendChild(visualDiv);
+
+                // 2. Z-E Table Inputs
+                const tableDiv = document.createElement('div');
+                tableDiv.innerHTML = `
+                    <div class="border-2 border-slate-800 rounded-xl overflow-hidden bg-white shadow-inner">
+                        <div class="grid grid-cols-2 text-center font-bold bg-amber-100 border-b-2 border-slate-800 text-lg">
+                            <div class="p-2 border-r-2 border-slate-800 text-amber-800">Z</div>
+                            <div class="p-2 text-amber-800">E</div>
+                        </div>
+                        <div class="grid grid-cols-2 text-center">
+                            <div class="p-2 border-r-2 border-slate-800">
+                                <input type="number" min="0" max="9" data-task="${i}" data-type="tens" 
+                                    class="w-12 h-12 text-center text-2xl font-bold bg-amber-50 rounded-lg border-2 border-amber-300 focus:outline-none focus:border-amber-500" 
+                                    oninput="checkTask(${i})">
+                            </div>
+                            <div class="p-2">
+                                <input type="number" min="0" max="9" data-task="${i}" data-type="units" 
+                                    class="w-12 h-12 text-center text-2xl font-bold bg-amber-50 rounded-lg border-2 border-amber-300 focus:outline-none focus:border-amber-500" 
+                                    oninput="checkTask(${i})">
+                            </div>
+                        </div>
+                    </div>
+                `;
+                rowDiv.appendChild(tableDiv);
+
+                // 3. Total Number Input on Line
+                const lineDiv = document.createElement('div');
+                lineDiv.className = "flex items-center gap-3";
+                lineDiv.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <div class="w-24 md:w-32 border-b-4 border-slate-800 pb-1 flex justify-center">
+                            <input type="number" min="1" max="99" data-task="${i}" data-type="total" 
+                                class="w-20 text-center text-3xl font-bold bg-transparent focus:outline-none text-slate-800" 
+                                oninput="checkTask(${i})">
+                        </div>
+                    </div>
+                `;
+                rowDiv.appendChild(lineDiv);
+
+                container.appendChild(rowDiv);
+            }
+        }
+
+        function checkTask(index) {
+            const task = currentTasks[index];
+            if (task.solved) return; // Already solved
+
+            const rowElement = document.getElementById(`task-row-${index}`);
+            const tensInput = rowElement.querySelector(`input[data-task="${index}"][data-type="tens"]`);
+            const unitsInput = rowElement.querySelector(`input[data-task="${index}"][data-type="units"]`);
+            const totalInput = rowElement.querySelector(`input[data-task="${index}"][data-type="total"]`);
+
+            const userTens = parseInt(tensInput.value);
+            const userUnits = parseInt(unitsInput.value);
+            const userTotal = parseInt(totalInput.value);
+
+            if (userTens === task.tens && userUnits === task.units && userTotal === task.total) {
+                task.solved = true;
+                rowElement.classList.add('row-success');
+                
+                // Disable inputs for this row
+                tensInput.disabled = true;
+                unitsInput.disabled = true;
+                totalInput.disabled = true;
+
+                // Random positive reinforcement speech
+                const praises = [
+                    "Super gemacht!", 
+                    "Toll, richtig gerechnet!", 
+                    "Prima!", 
+                    "Ausgezeichnet!", 
+                    "Klasse, weiter so!"
+                ];
+                const randomPraise = praises[Math.floor(Math.random() * praises.length)];
+                speak(randomPraise);
+
+                // Check if all tasks on the sheet are solved
+                if (currentTasks.every(t => t.solved)) {
+                    setTimeout(() => {
+                        playSuccessSound();
+                        speak("Fantastisch! Du hast alle Aufgaben auf diesem Blatt gelöst!");
+                        confetti({
+                            particleCount: 120,
+                            spread: 80,
+                            origin: { y: 0.6 }
+                        });
+                    }, 500);
+                }
+            }
+        }
+
+        // Generate initial sheet on load
+        window.onload = function() {
+            generateNewSheet();
+        };
+    </script>
+</body>
+</html>
